@@ -1,0 +1,37 @@
+map:
+  type: county
+  state: Oregon
+  colors:
+    - "#ffffff"
+    - "#E0E4CC"
+    - "#A7DBD8"
+    - "#69D2E7"
+    - "#F38630"
+    - "#FA6900"
+    - "#333333"
+  title: Oregon Producers by County
+  values:
+    Baker:  1
+    Benton: 21
+    Clackamas:  127
+    Clatsop: 9
+    Columbia:   16
+    Coos:   20
+    Curry:  6
+    Deschutes:  24
+    Douglas: 2
+    Harney: 1
+    Hood River: 18
+    Jackson: 189
+    Jefferson:  0
+    Josephine:  119
+    Lake:   1
+    Lane:   124
+    Lincoln: 7
+    Marion: 18
+    Multnomah:  63
+    Polk:   35
+    Tillamook:  8
+    Wasco:  10
+    Washington: 58
+    Yamhill: 35

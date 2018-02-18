@@ -4,15 +4,20 @@ from argparse import ArgumentParser
 import os
 import sys
 
+
+import pyaml
 from xml.etree import ElementTree
 import yaml
 
-oregon = os.path.join(os.path.dirname(__file__), "oregon-blank-scale.svg")
+
+MAP_TEMPLATES = os.path.join(os.path.dirname(os.path.realpath(__file__)), "map-templates")
+USA_MAP = "USA.svg"
+
 
 style = "fill-opacity:1;stroke:#a9a9a9;stroke-width:103;stroke-linejoin:round;stroke-opacity:1;fill:"
 josehphine = "fill-opacity:1;stroke:#000000;stroke-width:103;stroke-linejoin:round;stroke-opacity:1;fill:"
 
-scale_style = "opacity:1;fill-opacity:1;fill-rule:nonzero;stroke:#ffffff;stroke-width:94.64063263;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:18.89763832;stroke-opacity:1;paint-order:stroke fill markers;fill:"
+scale_style = "opacity:1;fill-opacity:1;fill-rule:nonzero;stroke:#959595;stroke-width:94.64063263;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:18.89763832;stroke-opacity:1;paint-order:stroke fill markers;fill:"
 star_style = "opacity:1;fill-opacity:1;fill-rule:nonzero;stroke:#ffffff;stroke-width:94.64063263;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:18.89763832;stroke-opacity:1;paint-order:stroke fill markers;fill:#f38630"
 
 
@@ -40,7 +45,6 @@ goldfish = [
 ]
 
 total_colors_in_map = 9
-data_colors = goldfish
 
 producers = {
     "Baker":  1,
@@ -139,17 +143,28 @@ def readConfig(path):
     with open(path) as f:
         config = yaml.safe_load(f)
 
-    # Validate the config
+    # TODO: Validate the config
     print config
 
     return config
 
 
+def getMapTemplate(config):
+    map_name = None
+    if config['map']['type'].lower() == "county":
+        map_name = config['map']['state'] + ".svg"
+    elif config['map']['type'].lower() == "state":
+        map_name = USA_MAP
+
+    # TODO: add error checking
+    return os.path.join(MAP_TEMPLATES, map_name)
+
+
 def chooseColor(value):
     # input_range = float(max(data.values()) - 0)
-    # output_range = float(len(data_colors) - 1)
+    # output_range = float(len(config['map']['colors']) - 1)
     # output_color = (((value - 0) * output_range) / input_range) + 0
-    # return data_colors[int(round(output_color))]
+    # return config['map']['colors'][int(round(output_color))]
     return color_map[value]
 
 
@@ -163,7 +178,7 @@ def main():
     args = parser.parse_args()
 
     config_file = args.config_file
-    output_file = args.output_file
+    output_file = args.output
     if not output_file.endswith(".svg"):
         output_file += ".svg"
 
@@ -171,31 +186,34 @@ def main():
     # Parse the config file
     #
     config = readConfig(config_file)
-    sys.exit(1)
+    map_template = getMapTemplate(config)
+
+    # FIXME: this should be conditional
+    data = config['map']['values']
 
 
+    #
     # Load the SVG map
-    with open(oregon) as f:
+    #
+    with open(map_template) as f:
         tree = ElementTree.parse(f)
-
     root = tree.getroot()
-
 
     #
     # Setup the color scale
     #
     max_val = max(data.values())
     min_val = 0
-    per_color = round((float(max_val) - 0) / (len(data_colors)-1))
+    per_color = round((float(max_val) - 0) / (len(config['map']['colors'])-1))
     x = 1
-    color_map[0] = data_colors[0]
+    color_map[0] = config['map']['colors'][0]
     for i in range(1, max_val+1):
         if i%per_color == 0:
             x += 1
-            if x > len(data_colors) - 1:
-                x = len(data_colors) - 1
+            if x > len(config['map']['colors']) - 1:
+                x = len(config['map']['colors']) - 1
 
-        color_map[i] = data_colors[x]
+        color_map[i] = config['map']['colors'][x]
         # print "data_value: %d,  color index: %d"%(i, x)
 
     # print color_map
@@ -206,7 +224,9 @@ def main():
     # print reverse_color_map
     # print color_map
 
+    #
     # Find counties
+    #
     elements = [e for e in root.iter()]
     parent_map = dict((c, p) for p in root.getiterator() for c in p)
 
@@ -250,25 +270,36 @@ def main():
         tag = e.tag.split('}')[-1]
         attrs = dict(e.attrib.items())
 
+        # Set the title
+        if tag == 'tspan' and attrs.get('id') == "Map-Title":
+            e.text = config['map']['title']
+
+        # Set all Colors
         for c in range(total_colors_in_map):
             if tag == 'rect' and attrs.get('id') == "Scale%d-Color"%(c):
-                if c >= len(data_colors):
+                if c >= len(config['map']['colors']):
                     # delete the element
                     parent_map[e].remove(e)
                 elif 'style' in attrs:
-                    new_style = scale_style + data_colors[c]
+                    new_style = scale_style + config['map']['colors'][c]
                     e.set('style', new_style)
             elif tag == 'tspan' and attrs.get('id') == "Scale%d-Text"%(c):
-                if c >= len(data_colors):
+                if c >= len(config['map']['colors']):
                     # delete the element
                     parent_map[e].remove(e)
                 else:
-                    # print c, color_map[c], min(reverse_color_map[data_colors[c]]), max(reverse_color_map[data_colors[c]])
-                    e.text = "%d - %d"%(min(reverse_color_map[data_colors[c]]), max(reverse_color_map[data_colors[c]]))
+                    # print c, color_map[c], min(reverse_color_map[config['map']['colors'][c]]), max(reverse_color_map[config['map']['colors'][c]])
+                    scale_min = min(reverse_color_map[config['map']['colors'][c]])
+                    scale_max = max(reverse_color_map[config['map']['colors'][c]])
+                    if scale_min == scale_max:
+                        e.text = str(scale_min)
+                    else:
+                        e.text = "%d - %d"%(scale_min, scale_max)
                     # print "Scale: %d, text: %s"%(c, e.text)
 
     # write new svg
-    tree.write(sys.stdout)
+    with open(output_file, 'w') as f:
+        tree.write(f)
 
 
 if __name__ == "__main__":
