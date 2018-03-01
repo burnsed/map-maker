@@ -5,13 +5,11 @@ import os
 import sys
 
 
-import pyaml
 from xml.etree import ElementTree
 import yaml
 
 
 MAP_TEMPLATES = os.path.join(os.path.dirname(os.path.realpath(__file__)), "map-templates")
-USA_MAP = "USA.svg"
 
 
 style = "fill-opacity:1;stroke:#a9a9a9;stroke-width:103;stroke-linejoin:round;stroke-opacity:1;fill:"
@@ -151,20 +149,16 @@ def readConfig(path):
 
 def getMapTemplate(config):
     map_name = None
-    if config['map']['type'].lower() == "county":
+    if config['map']['type'].lower() == "state":
         map_name = config['map']['state'] + ".svg"
-    elif config['map']['type'].lower() == "state":
-        map_name = USA_MAP
+    elif config['map']['type'].lower() == "country":
+        map_name = config['map']['country'] + ".svg"
 
     # TODO: add error checking
     return os.path.join(MAP_TEMPLATES, map_name)
 
 
 def chooseColor(value):
-    # input_range = float(max(data.values()) - 0)
-    # output_range = float(len(config['map']['colors']) - 1)
-    # output_color = (((value - 0) * output_range) / input_range) + 0
-    # return config['map']['colors'][int(round(output_color))]
     return color_map[value]
 
 
@@ -189,7 +183,7 @@ def main():
     map_template = getMapTemplate(config)
 
     # FIXME: this should be conditional
-    data = config['map']['values']
+    data = config['map']['data']
 
 
     #

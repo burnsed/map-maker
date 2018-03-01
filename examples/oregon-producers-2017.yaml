@@ -1,6 +1,5 @@
 map:
-  type: county
-  state: Oregon
+  type: Oregon
   colors:
     - "#ffffff"
     - "#E0E4CC"
@@ -10,7 +9,7 @@ map:
     - "#FA6900"
     - "#333333"
   title: Oregon Producers by County
-  values:
+  data:
     Baker:  1
     Benton: 21
     Clackamas:  127
