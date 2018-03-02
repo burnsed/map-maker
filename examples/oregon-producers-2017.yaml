@@ -1,5 +1,6 @@
 map:
   type: Oregon
+  # Goldfish color palette
   colors:
     - "#ffffff"
     - "#E0E4CC"

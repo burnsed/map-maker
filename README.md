@@ -42,6 +42,8 @@ All maps should have the following elements:
 
 Depending on the type of map you are creating, it needs to have __path__ or __g__ elements for with ids that match each of the names in the data set. For example, if your map is of the United States, there should be __path__ elements with the ids 'California', 'Texas', 'New York', etc.
 
+**NOTE** SVG files are basically just xml. You can edit them in a text editor or in an vector editing tool such as inkscape.
+
 Any new svg file you add to the [map-templates](./map-templates) folder will automatically be available to the map-maker script.
 
 
