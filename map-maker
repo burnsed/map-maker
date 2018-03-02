@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 import os
+import re
 import sys
 
 
@@ -14,10 +15,10 @@ MAX_SUPPORTED_COLORS = 9
 
 DEBUG = False
 
-BASIC_STYLE = "fill-opacity:1;stroke:#a9a9a9;stroke-width:103;stroke-linejoin:round;stroke-opacity:1;fill:"
-HIGHLIGHT_STYLE = "fill-opacity:1;stroke:#000000;stroke-width:103;stroke-linejoin:round;stroke-opacity:1;fill:"
+FILL_RE = re.compile(r"fill:#\w+")
+STROKE_RE = re.compile(r"stroke:#\w")
 
-SCALE_STYLE = "opacity:1;fill-opacity:1;fill-rule:nonzero;stroke:#959595;stroke-width:94.64063263;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:18.89763832;stroke-opacity:1;paint-order:stroke fill markers;fill:"
+HIGHLIGHT_STROKE = "#000000"
 
 
 def debug(msg):
@@ -90,16 +91,25 @@ def main():
     color_map = {}
     max_val = max(data.values())
     min_val = 0
-    per_color = round((float(max_val) - 0) / (len(config['map']['colors'])-1))
-    x = 1
-    color_map[0] = config['map']['colors'][0]
-    for i in range(1, max_val+1):
-        if i%per_color == 0:
+    per_color = int(round((float(max_val) - 0) / (len(config['map']['colors'])-1)))
+
+    # Trim any unused colors in palette (only if there are more colors than values)
+    used_colors = int(max_val/per_color)
+    if len(config['map']['colors']) > used_colors:
+        config['map']['colors'] = config['map']['colors'][0:used_colors+1]
+        per_color = int(round((float(max_val) - 0) / (len(config['map']['colors'])-1)))
+
+    x = 0
+    for i in range(max_val+1):
+        color_map[i] = config['map']['colors'][x]
+
+        if i == 0:
+            x += 1
+        elif i%per_color == 0:
             x += 1
             if x > len(config['map']['colors']) - 1:
                 x = len(config['map']['colors']) - 1
 
-        color_map[i] = config['map']['colors'][x]
 
     reverse_color_map = {}
     for k, v in color_map.iteritems():
@@ -108,6 +118,7 @@ def main():
 
     debug("Color mapping:")
     for c in config['map']['colors']:
+        # debug("    %s: %s"%(c, reverse_color_map.get(c)))
         debug("    %s: %d - %d"%(c, min(reverse_color_map[c]), max(reverse_color_map[c])))
     debug("")
 
@@ -127,10 +138,9 @@ def main():
             if 'style' in attrs:
                 element_name = attrs['id']
                 color = chooseColor(color_map, data[element_name])
+                new_style = FILL_RE.sub("fill:"+color, attrs['style'])
                 if attrs.get('data-highlight'):
-                    new_style = HIGHLIGHT_STYLE + color
-                else:
-                    new_style = BASIC_STYLE + color
+                    new_style = STROKE_RE.sub(HIGHLIGHT_STROKE, new_style)
 
                 e.set('style', new_style)
                 debug("    Found path for '%s', set color to %s"%(element_name, color))
@@ -143,7 +153,7 @@ def main():
                     ge_attrs = dict(ge.attrib.items())
                     if 'style' in ge_attrs:
                         # set color of sub-element_name
-                        new_style = BASIC_STYLE + chooseColor(color_map, data[element_name])
+                        new_style = FILL_RE.sub("fill:"+chooseColor(color_map, data[element_name]), ge_attrs['style'])
                         ge.set('style', new_style)
 
                 debug("    Found group for '%s', set color to %s"%(element_name, color))
@@ -157,6 +167,9 @@ def main():
 
     debug("")
     debug("Populating the legend:")
+    if 'legend' in config['map']:
+        debug("*** Custom Legend Supplied")
+
     for e in elements[1:]:
         # trim w3 spec version
         tag = e.tag.split('}')[-1]
@@ -167,29 +180,48 @@ def main():
             e.text = config['map']['title']
 
         # Set all Colors
-        for c in range(MAX_SUPPORTED_COLORS):
-            if tag == 'rect' and attrs.get('id') == "Scale%d-Color"%(c):
-                if c >= len(config['map']['colors']):
-                    # delete the element
-                    parent_map[e].remove(e)
-                    debug("    Removed unused %s"%(attrs['id']))
-                elif 'style' in attrs:
-                    new_style = SCALE_STYLE + config['map']['colors'][c]
-                    e.set('style', new_style)
-                    debug("    Set %s to %s"%(attrs['id'], config['map']['colors'][c]))
-            elif tag == 'tspan' and attrs.get('id') == "Scale%d-Text"%(c):
-                if c >= len(config['map']['colors']):
-                    # delete the element
-                    parent_map[e].remove(e)
-                    debug("    Removed unused %s"%(attrs['id']))
-                else:
-                    scale_min = min(reverse_color_map[config['map']['colors'][c]])
-                    scale_max = max(reverse_color_map[config['map']['colors'][c]])
-                    if scale_min == scale_max:
-                        e.text = str(scale_min)
+        if 'legend' in config['map']:
+            for c in range(MAX_SUPPORTED_COLORS):
+                if tag =='rect' and attrs.get('id') == "Scale%d-Color"%(c):
+                    if c in config['map']['legend']:
+                        new_style = FILL_RE.sub("fill:"+config['map']['colors'][c], attrs['style'])
+                        e.set('style', new_style)
+                        debug("    Set %s to %s"%(attrs['id'], config['map']['colors'][c]))
                     else:
-                        e.text = "%d - %d"%(scale_min, scale_max)
-                    debug("    Set %s to '%s'"%(attrs['id'], e.text))
+                        parent_map[e].remove(e)
+                        debug("    Removed unused %s"%(attrs['id']))
+                elif tag == 'tspan' and attrs.get('id') == "Scale%d-Text"%(c):
+                    if c in config['map']['legend']:
+                        e.text = str(config['map']['legend'][c])
+                        debug("    Set %s to '%s'"%(attrs['id'], e.text))
+                    else:
+                        parent_map[e].remove(e)
+                        debug("    Removed unused %s"%(attrs['id']))
+
+        else:
+            for c in range(MAX_SUPPORTED_COLORS):
+                if tag == 'rect' and attrs.get('id') == "Scale%d-Color"%(c):
+                    if c >= len(config['map']['colors']):
+                        # delete the element
+                        parent_map[e].remove(e)
+                        debug("    Removed unused %s"%(attrs['id']))
+                    elif 'style' in attrs:
+                        new_style = FILL_RE.sub("fill:"+config['map']['colors'][c], attrs['style'])
+                        e.set('style', new_style)
+                        debug("    Set %s to %s"%(attrs['id'], config['map']['colors'][c]))
+                elif tag == 'tspan' and attrs.get('id') == "Scale%d-Text"%(c):
+                    if c >= len(config['map']['colors']):
+                        # delete the element
+                        parent_map[e].remove(e)
+                        debug("    Removed unused %s"%(attrs['id']))
+                    else:
+                        scale_min = min(reverse_color_map[config['map']['colors'][c]])
+                        scale_max = max(reverse_color_map[config['map']['colors'][c]])
+                        if scale_min == scale_max:
+                            e.text = str(scale_min)
+                        else:
+                            e.text = "%d - %d"%(scale_min, scale_max)
+                        debug("    Set %s to '%s'"%(attrs['id'], e.text))
 
     # write new svg
     debug("-"*40)

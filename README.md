@@ -26,6 +26,7 @@ This script requires Python 2.7
   - **map** - this is the only root level object in the yaml file. All data used to populate a map is nested under the map object.
   - **type** - this is the type of map you want to create. The value for this field should match the name of one of the templates in the [map-templates](./map-templates) folder. For example, to create a map of the United States, your map type would be 'USA'.
   - **colors** - this is an ordered list of colors to use when shading the map. The values of your dataset will automatically be scaled to the colors listed. **Note**: 0 is the only value not scaled. Any 0 value in your dataset will be assigned to the first color in the list.
+  - **legend (optional)** - you may specify an optional legend. They keys are the color indexes and the values are the labels for each color. Only included colors will be shown.
   - **title** - This is the title of your map.
   - **data** - This is a map of __names__ to __values__. If your map is of the United States, each name should be a state, and its corresponding value is the numeric value for that state. For example, your values might be the population of each state, or the percentage of registered voters in each state. As long as it is a number, the map will be shaded accordingly. Similarly, if your map is of a state, then your data set would be county names and their corresponding values.
 
